@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/go-shiori/go-readability"
+	"github.com/vissong/go-readability"
 )
 
 type UrlRich struct {
@@ -18,7 +18,7 @@ type UrlRich struct {
 	useChrome      bool
 	chromeInit     bool
 	chromedpCtx    context.Context
-	chromedpCancel context.CancelFunc
+	ChromedpCancel context.CancelFunc
 }
 
 type RichResult struct {
@@ -113,5 +113,5 @@ func (o *UrlRich) initChromedpCtx() {
 
 	o.chromeInit = true
 	o.chromedpCtx = chromeCtx
-	o.chromedpCancel = cancel
+	o.ChromedpCancel = cancel
 }
