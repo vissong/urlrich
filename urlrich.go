@@ -6,19 +6,21 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chromedp/chromedp"
 	"github.com/vissong/go-readability"
 )
 
 type UrlRich struct {
-	url            string
-	userAgent      string
-	debug          bool
-	timeout        time.Duration
-	useChrome      bool
-	chromeInit     bool
-	chromedpCtx    context.Context
-	ChromedpCancel context.CancelFunc
+	url              string
+	userAgent        string
+	debug            bool
+	timeout          time.Duration
+	useChrome        bool
+	useRemoteChrome  bool
+	remoteChromeHTTP string // 远程 chrome 的 ws 地址，比如 http://127.0.0.1:9222
+	remoteChromeWS   string // 请求 http://127.0.0.1:9222/json 后，返回中有一个完整的 url，比如 ws://127.0.0.1:9222/devtools/page/6AAF75357FA5B76E36E50C2C7B3FC284
+	chromeInit       bool
+	chromedpCtx      context.Context
+	ChromedpCancel   context.CancelFunc
 }
 
 type RichResult struct {
@@ -39,11 +41,19 @@ func (o *UrlRich) Init(opt ...Option) *UrlRich {
 	}
 
 	if o.useChrome && !o.chromeInit {
-		o.initChromedpCtx()
+		if o.useRemoteChrome {
+			o.UpdateRemoteChromeDebugURL(o.remoteChromeHTTP)
+		} else {
+			o.initLocalChromedpCtx()
+		}
 	}
 
 	if o.timeout == 0 {
 		o.timeout = 10 * time.Second
+	}
+
+	if len(o.userAgent) == 0 {
+		o.userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36"
 	}
 
 	return o
@@ -57,6 +67,7 @@ func (o *UrlRich) Do(url string) (RichResult, error) {
 	var html string
 	var err error
 	if o.useChrome {
+		// html, err = requestByChromedp2(o.chromedpCtx, o.url, o.timeout)
 		html, err = o.requestByChromedp()
 	} else {
 		html, err = o.requestByHTTP()
@@ -72,6 +83,7 @@ func (o *UrlRich) Do(url string) (RichResult, error) {
 	article, err := readability.FromReader(strings.NewReader(html), o.url)
 	if err != nil {
 		log.Fatalf("failed to parse %s: %v\n", o.url, err)
+		return RichResult{}, err
 	}
 
 	result.Url = o.url
@@ -81,37 +93,4 @@ func (o *UrlRich) Do(url string) (RichResult, error) {
 	result.FaviconUrl = article.Favicon
 
 	return result, nil
-}
-
-// initChromedpCtx 初始化 chromedp context & 初始化 chromedp
-func (o *UrlRich) initChromedpCtx() {
-	allocatorOptions := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("blink-settings", "imagesEnabled=false"),
-		chromedp.UserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36"),
-	)
-	contextOption := make([]chromedp.ContextOption, 0)
-	contextOption = append(contextOption,
-		chromedp.WithLogf(log.Printf),
-	)
-
-	if o.debug {
-		allocatorOptions = append(
-			allocatorOptions,
-			chromedp.Flag("headless", true),
-		)
-		contextOption = append(contextOption, chromedp.WithDebugf(log.Printf))
-	}
-
-	c, _ := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
-	chromeCtx, cancel := chromedp.NewContext(
-		c,
-		contextOption...,
-	)
-
-	// init chromedp run first once
-	chromedp.Run(chromeCtx, make([]chromedp.Action, 0, 1)...)
-
-	o.chromeInit = true
-	o.chromedpCtx = chromeCtx
-	o.ChromedpCancel = cancel
 }

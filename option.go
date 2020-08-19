@@ -43,3 +43,12 @@ func WithTimeout(timeout time.Duration) Option {
 		o.timeout = timeout
 	}
 }
+
+// WithRemoteChrome 设置远程 chrome 的ws地址
+func WithRemoteChrome(httpUrl string) Option {
+	return func(o *UrlRich) {
+		o.useRemoteChrome = true
+		o.useChrome = true
+		o.remoteChromeHTTP = httpUrl
+	}
+}
