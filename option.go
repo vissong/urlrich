@@ -7,13 +7,6 @@ import (
 // Option urlrich option
 type Option func(o *UrlRich)
 
-// WithUrl 设置需要取抓取的 url，正常应该在 Do 的时候传入，而不是在这里设置
-func WithUrl(url string) Option {
-	return func(o *UrlRich) {
-		o.url = url
-	}
-}
-
 // WithDebug 设置是否打开debug，会影响 chromedp 的debuglog
 func WithDebug(debug bool) Option {
 	return func(o *UrlRich) {

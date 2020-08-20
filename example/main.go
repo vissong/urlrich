@@ -11,7 +11,7 @@ func main() {
 	urlrichIns := &urlrich.UrlRich{}
 	urlrichIns.Init(
 		urlrich.WithUseChrome(true),
-		urlrich.WithRemoteChrome("http://127.0.0.1:9222"),
+		// urlrich.WithRemoteChrome("http://127.0.0.1:9222"),
 		// urlrich.WithDebug(true),
 	)
 
@@ -19,6 +19,7 @@ func main() {
 		"https://www.baidu.com",
 		"https://www.qq.com",
 		"https://xue.youdao.com/sw/m/1946563?keyfrom=dict2.index",
+		// "https://www.google.com",
 	}
 
 	for _, url := range urls {

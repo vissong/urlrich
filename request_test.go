@@ -31,12 +31,11 @@ func TestUrlRich_requestByHTTP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &UrlRich{
-				url:       tt.fields.url,
 				userAgent: tt.fields.userAgent,
 				debug:     tt.fields.debug,
 				timeout:   tt.fields.timeout,
 			}
-			_, err := o.requestByHTTP()
+			_, err := o.requestByHTTP("https://www.baidu.com")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("requestByHTTP() error = %v, wantErr %v", err, tt.wantErr)
 				return
