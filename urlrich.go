@@ -2,25 +2,31 @@ package urlrich
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"time"
 
-	"github.com/chromedp/chromedp"
 	"github.com/vissong/go-readability"
 )
 
 type UrlRich struct {
-	userAgent        string
-	debug            bool
-	timeout          time.Duration
-	useChrome        bool
-	useRemoteChrome  bool
+	userAgent string
+	debug     bool
+	timeout   time.Duration
+
+	useChrome       bool
+	useRemoteChrome bool
+	downgrading     bool // 当使用 chrome 超时的时候，是否退化到 http 请求，默认为 false
+
 	remoteChromeHTTP string // 远程 chrome 的 ws 地址，比如 http://127.0.0.1:9222
 	remoteChromeWS   string // 请求 http://127.0.0.1:9222/json 后，返回中有一个完整的 url，比如 ws://127.0.0.1:9222/devtools/page/6AAF75357FA5B76E36E50C2C7B3FC284
+
 	chromeInit       bool
-	allocatorCtx     *context.Context
-	allocatorCancel  *context.CancelFunc
+	localChromeRuned bool // 本地的chrome是否已经执行（第一次RUN是否已经调用过）
+
+	allocatorCtx    context.Context
+	allocatorCancel context.CancelFunc
 }
 
 type RichResult struct {
@@ -30,6 +36,8 @@ type RichResult struct {
 	Desc       string `json:"Desc"`
 	ImageUrl   string `json:"ImageUrl"`
 	FaviconUrl string `json:"FaviconUrl"`
+
+	Downgrading bool `json:"Downgrading"` // 是否是基于chrome降级到 http 拉取的页面结果
 }
 
 // Init 初始化
@@ -50,19 +58,21 @@ func (o *UrlRich) Init(opt ...Option) {
 
 	if o.useChrome && !o.chromeInit {
 		if o.useRemoteChrome {
-			o.UpdateRemoteChromeDebugURL(o.remoteChromeHTTP)
-			o.connectRemoteChrome()
+			err := o.updateRemoteChromeWS(o.remoteChromeHTTP)
+			if err != nil {
+				return
+			}
+			err = o.connectRemoteChrome()
+			if err != nil {
+				return
+			}
 		} else {
-			o.initLocalChromedpCtx()
+			err := o.initLocalChromedpCtx()
+			if err != nil {
+				return
+			}
 		}
 	}
-}
-
-func (o *UrlRich) ReConnectRemote(remoteChromeHTTP string) {
-	chromedp.Cancel(*o.allocatorCtx)
-	o.remoteChromeHTTP = remoteChromeHTTP
-	o.UpdateRemoteChromeDebugURL(remoteChromeHTTP)
-	o.connectRemoteChrome()
 }
 
 // Do 执行请求
@@ -70,9 +80,14 @@ func (o *UrlRich) Do(url string) (RichResult, error) {
 
 	var html string
 	var err error
+	var hadDowngrading bool
 	if o.useChrome {
+		if o.chromeInit != true {
+			log.Println("UrlRich is not inited, please check")
+			return RichResult{}, errors.New("UrlRich is not inited, please check")
+		}
 		// html, err = requestByChromedp2(o.chromedpCtx, o.url, o.timeout)
-		html, err = o.requestByChromedp(url)
+		html, err, hadDowngrading = o.requestByChromedp(url)
 	} else {
 		html, err = o.requestByHTTP(url)
 	}
@@ -95,6 +110,10 @@ func (o *UrlRich) Do(url string) (RichResult, error) {
 	result.Desc = article.Excerpt
 	result.ImageUrl = article.Image
 	result.FaviconUrl = article.Favicon
+
+	if hadDowngrading {
+		result.Downgrading = true
+	}
 
 	return result, nil
 }

@@ -3,6 +3,7 @@ package urlrich
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -28,11 +29,11 @@ func (o *UrlRich) initLocalChromedpCtx() error {
 	if o.debug {
 		allocatorOptions = append(
 			allocatorOptions,
-			chromedp.Flag("headless", true),
+			chromedp.Flag("headless", false),
 		)
 	}
 
-	*o.allocatorCtx, *o.allocatorCancel = chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
+	o.allocatorCtx, _ = chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
 
 	// 打开一个chrome tab，并维持，避免重复创建浏览器
 	chromeCtx, chromeCancel := o.NewChromeTab()
@@ -50,17 +51,23 @@ func (o *UrlRich) initLocalChromedpCtx() error {
 }
 
 // connectRemoteChrome 初始化远程chrome allocator 并返回ctx和 cancle，如果远程的 wsurl 发生变化，则 cancel 掉，重新 init
-func (o *UrlRich) connectRemoteChrome() {
-	*o.allocatorCtx, *o.allocatorCancel = chromedp.NewRemoteAllocator(context.Background(), o.remoteChromeWS)
+func (o *UrlRich) connectRemoteChrome() error {
+
+	if len(o.remoteChromeWS) == 0 {
+		return errors.New("remoteChromeWS is empty")
+	}
+	o.allocatorCtx, o.allocatorCancel = chromedp.NewRemoteAllocator(context.Background(), o.remoteChromeWS)
 
 	o.chromeInit = true
+
+	return nil
 }
 
 // NewChromeTab 调用 chromedp.NewContext，相当于打开一个新的 chrome tab
 func (o *UrlRich) NewChromeTab() (context.Context, context.CancelFunc) {
 	if o.useRemoteChrome {
 		chromeCtx, cancel := chromedp.NewContext(
-			*o.allocatorCtx,
+			o.allocatorCtx,
 		)
 		return chromeCtx, cancel
 	}
@@ -73,7 +80,7 @@ func (o *UrlRich) NewChromeTab() (context.Context, context.CancelFunc) {
 	}
 
 	chromeCtx, cancel := chromedp.NewContext(
-		*o.allocatorCtx,
+		o.allocatorCtx,
 		contextOption...,
 	)
 
@@ -82,7 +89,7 @@ func (o *UrlRich) NewChromeTab() (context.Context, context.CancelFunc) {
 
 // UpdateRemoteChromeDebugURL 从chrome的json地址，获取 ws debug 地址
 // 当连接chrome失败的时候，可以调用这个重新获取一下 debug url 地址
-func (o *UrlRich) UpdateRemoteChromeDebugURL(remoteChromeHTTP string) error {
+func (o *UrlRich) updateRemoteChromeWS(remoteChromeHTTP string) error {
 
 	o.remoteChromeHTTP = remoteChromeHTTP
 	resp, err := http.Get(o.remoteChromeHTTP + "/json/version")
@@ -105,9 +112,24 @@ func (o *UrlRich) UpdateRemoteChromeDebugURL(remoteChromeHTTP string) error {
 
 	if len(chromeDebugJson.WebSocketDebuggerURL) > 0 {
 		o.remoteChromeWS = chromeDebugJson.WebSocketDebuggerURL
-		// o.connectRemoteChrome() // 重新获取了 debug url 之后，需要重新 NewRemoteAllocator，所以需要再调用一次 init
 	}
 
 	// log.Println(string(jsonStr))
 	return nil
+}
+
+// ReConnectRemote 当使用远程 chrome 的时候，如果上一个 chrome 报错了
+// （比如运行chrome的机器下线了）需要先从名字服务中取出ip，然后再重新连接一下远程 chrome
+func (o *UrlRich) ReConnectRemote(remoteChromeHTTP string) {
+	if o.useRemoteChrome != true {
+		return
+	}
+
+	if o.chromeInit && o.useRemoteChrome && o.allocatorCancel != nil {
+		// chromedp.Cancel(o.allocatorCtx)
+		o.allocatorCancel()
+	}
+	o.remoteChromeHTTP = remoteChromeHTTP
+	o.updateRemoteChromeWS(remoteChromeHTTP)
+	o.connectRemoteChrome()
 }

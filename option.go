@@ -22,6 +22,13 @@ func WithUserAgent(ua string) Option {
 	}
 }
 
+// WithDowngrading 设置降级
+func WithDowngrading(downgrading bool) Option {
+	return func(o *UrlRich) {
+		o.downgrading = downgrading
+	}
+}
+
 // WithUseChrome 设置是否使用 chromedp，如果是不是则使用http直接抓取，不支持使用js渲染的页面
 // 但是使用 chrome 抓取，会比直接 http 抓取更慢
 func WithUseChrome(useChrome bool) Option {
