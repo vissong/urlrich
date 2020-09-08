@@ -20,7 +20,7 @@ func TestUrlRich_UpdateRemoteChromeDebugURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			o := &UrlRich{}
-			if err := o.UpdateRemoteChromeDebugURL(tt.args.remoteChromeHTTP); (err != nil) != tt.wantErr {
+			if err := o.updateRemoteChromeWS(tt.args.remoteChromeHTTP); (err != nil) != tt.wantErr {
 				t.Errorf("UpdateRemoteChromeDebugURL() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			fmt.Println(o.remoteChromeWS)

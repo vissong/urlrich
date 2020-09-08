@@ -52,3 +52,10 @@ func WithRemoteChrome(httpUrl string) Option {
 		o.remoteChromeHTTP = httpUrl
 	}
 }
+
+// WitchHttpProxy 设置http代理
+func WithHttpProxy(proxyUrl string) Option {
+	return func(o *UrlRich) {
+		o.httpProxy = proxyUrl
+	}
+}

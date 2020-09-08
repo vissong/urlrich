@@ -100,6 +100,9 @@ func (o *UrlRich) updateRemoteChromeWS(remoteChromeHTTP string) error {
 
 	jsonStr, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		logger.Debug("json version return: %s", jsonStr)
+		logger.Error("json version err: %v", err)
+		// 获取 wsurl 失败，比如被代理拦截等，请求不可达等
 		return err
 	}
 	// fmt.Println(string(jsonStr))
@@ -107,14 +110,16 @@ func (o *UrlRich) updateRemoteChromeWS(remoteChromeHTTP string) error {
 	var chromeDebugJson ChromeDebugJson
 	err = json.Unmarshal(jsonStr, &chromeDebugJson)
 	if err != nil {
+		logger.Error("updateRemoteChromeWS err: %v", err)
 		return err
 	}
+
+	logger.Debug("chromeDebugJson %v", chromeDebugJson)
 
 	if len(chromeDebugJson.WebSocketDebuggerURL) > 0 {
 		o.remoteChromeWS = chromeDebugJson.WebSocketDebuggerURL
 	}
 
-	// log.Println(string(jsonStr))
 	return nil
 }
 
